@@ -1,3 +1,11 @@
+
+## pip 使用清华镜像
+
+### 永久添加
+
+pip install pip -U
+pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
+
 ## CUDA
 https://developer.download.nvidia.cn/compute/cuda/10.1/Prod/local_installers/cuda_10.1.243_426.00_win10.exe
 

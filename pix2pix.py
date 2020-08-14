@@ -35,6 +35,10 @@ import time
 from matplotlib import pyplot as plt
 from IPython import display
 
+# 指定CPU计算
+# os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  
+# os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
 
 # %%
 
@@ -86,10 +90,10 @@ def load(image_file):
 inp, re = load(PATH+'train/100.png')
 
 # casting to int for matplotlib to show the image
-plt.figure()
-plt.imshow(inp/255.0)
-plt.figure()
-plt.imshow(re/255.0)
+# plt.figure()
+# plt.imshow(inp/255.0)
+# plt.figure()
+# plt.imshow(re/255.0)
 
 # %% [markdown]
 # ###Image Augmentation
@@ -119,7 +123,7 @@ def normalize(input_image, real_image):
 
   return input_image, real_image
 
-@tf.function()
+#@tf.function()
 def random_jitter(input_image, real_image):
   # resizing to 286 x 286 x 3
   input_image, real_image = resize(input_image, real_image, 286, 286)
@@ -146,13 +150,13 @@ def random_jitter(input_image, real_image):
 # %%
 # Cell 7
 
-plt.figure(figsize=(6, 6))
-for i in range(4):
-  rj_inp, rj_re = random_jitter(inp, re)
-  plt.subplot(2, 2, i+1)
-  plt.imshow(rj_inp/255.0)
-  plt.axis('off')
-plt.show()
+# plt.figure(figsize=(6, 6))
+# for i in range(4):
+#   rj_inp, rj_re = random_jitter(inp, re)
+#   plt.subplot(2, 2, i+1)
+#   plt.imshow(rj_inp/255.0)
+#   plt.axis('off')
+# plt.show()
 
 
 # %%

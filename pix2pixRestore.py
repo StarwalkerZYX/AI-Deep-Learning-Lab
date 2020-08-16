@@ -1,32 +1,11 @@
 
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-# To add a new cell, type '# %%'
-# To add a new markdown cell, type '# %% [markdown]'
+
 # %%
 from IPython import get_ipython
 
-# %% [markdown]
-# <a href="https://colab.research.google.com/github/RSNA/AI-Deep-Learning-Lab/blob/master/pin2pix_for_MRI.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
-# %% [markdown]
-# # Pix2Pix
-# 
-# ###This notebook comes almost entirely from the [Tensorflow Pix2Pix Tutorial](https://www.tensorflow.org/tutorials/generative/pix2pix) with only minor changes. The dataset was created from the [Brain-Development.org IXI Dataset](https://brain-development.org/ixi-dataset/).
-# %% [markdown]
-# "This notebook demonstrates image to image translation using conditional GAN's, as described in [Image-to-Image Translation with Conditional Adversarial Networks](https://arxiv.org/abs/1611.07004). Using this technique we can colorize black and white photos, convert google maps to google earth, etc."
-# 
-# Here, we convert T2 MRIs to T1.
-# %% [markdown]
-# ## Import TensorFlow and other libraries
 
-# %%
-# Cell 1
-
-try:
-  # %tensorflow_version only exists in Colab.
-  get_ipython().run_line_magic('tensorflow_version', '2.x')
-except Exception:
-  pass
 import tensorflow as tf
 
 import os
@@ -50,17 +29,6 @@ BUFFER_SIZE = 400
 BATCH_SIZE = 1
 IMG_WIDTH = 256
 IMG_HEIGHT = 256
-
-
-# %% [markdown]
-# ## Load the dataset
-# 
-# * In random jittering, the image is resized to `286 x 286` and then randomly cropped to `256 x 256`
-# * In random mirroring, the image is randomly flipped horizontally i.e left to right.
-# %% [markdown]
-# ####Load Image as Tensor
-# 
-# Pix2Pix training images are 256x256 with input (256x256) and target (256x256) side by side.
 
 # %%
 # Cell 4
@@ -88,15 +56,6 @@ def load(image_file):
 # inp and re will be used later on for further visualization
 
 inp, re = load(PATH+'train/100.png')
-
-# casting to int for matplotlib to show the image
-# plt.figure()
-# plt.imshow(inp/255.0)
-# plt.figure()
-# plt.imshow(re/255.0)
-
-# %% [markdown]
-# ###Image Augmentation
 
 # %%
 # Cell 6
@@ -137,27 +96,6 @@ def random_jitter(input_image, real_image):
     real_image = tf.image.flip_left_right(real_image)
 
   return input_image, real_image
-
-# %% [markdown]
-# As you can see in the images below
-# that they are going through random jittering
-# Random jittering as described in the paper is to
-# 
-# 1. Resize an image to bigger height and width
-# 2. Randomly crop to the target size
-# 3. Randomly flip the image horizontally
-
-# %%
-# Cell 7
-
-# plt.figure(figsize=(6, 6))
-# for i in range(4):
-#   rj_inp, rj_re = random_jitter(inp, re)
-#   plt.subplot(2, 2, i+1)
-#   plt.imshow(rj_inp/255.0)
-#   plt.axis('off')
-# plt.show()
-
 
 # %%
 # Cell 8
@@ -414,20 +352,6 @@ def discriminator_loss(disc_real_output, disc_generated_output):
 
   return total_disc_loss
 
-# %% [markdown]
-# The training procedure for the discriminator is shown below.
-# 
-# To learn more about the architecture and the hyperparameters you can refer the [paper](https://arxiv.org/abs/1611.07004).
-# %% [markdown]
-# 
-# ![Discriminator Update Image](https://github.com/tensorflow/docs/blob/master/site/en/tutorials/generative/images/dis.png?raw=1)
-# 
-# %% [markdown]
-# ## Define the Optimizers and Checkpoint-saver
-# 
-# 
-# 
-
 # %%
 # Cell 25
 
@@ -442,20 +366,8 @@ checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer,
                                  generator=generator,
                                  discriminator=discriminator)
 
-# %% [markdown]
-# ## Generate Images
-# 
-# Write a function to plot some images during training.
-# 
-# * We pass images from the test dataset to the generator.
-# * The generator will then translate the input image into the output.
-# * Last step is to plot the predictions and **voila!**
-# %% [markdown]
-# Note: The `training=True` is intentional here since
-# we want the batch statistics while running the model
-# on the test dataset. If we use training=False, we will get
-# the accumulated statistics learned from the training dataset
-# (which we don't want)
+# %%
+status = checkpoint.restore(tf.train.latest_checkpoint(checkpoint_dir))
 
 # %%
 # Cell 27
@@ -474,142 +386,10 @@ def generate_images(model, test_input, tar):
     plt.imshow(display_list[i] * 0.5 + 0.5)
     plt.axis('off')
   plt.show()
+# %% 
+checkpoint.restore("d:/GitHub/AI-Deep-Learning-Lab/training_checkpoints/")
 
-
+# %%
 for example_input, example_target in test_dataset.take(1):
   generate_images(generator, example_input, example_target)
-
-
 # %%
-# Cell 28
-
-for example_input, example_target in test_dataset.take(1):
-  generate_images(generator, example_input, example_target)
-
-# %% [markdown]
-# ## Training
-# 
-# * For each example input generate an output.
-# * The discriminator receives the input_image and the generated image as the first input. The second input is the input_image and the target_image.
-# * Next, we calculate the generator and the discriminator loss.
-# * Then, we calculate the gradients of loss with respect to both the generator and the discriminator variables(inputs) and apply those to the optimizer.
-# * Then log the losses to TensorBoard.
-
-# %%
-# Cell 30
-
-
-import datetime
-log_dir="logs/"
-
-summary_writer = tf.summary.create_file_writer(
-  log_dir + "fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
-
-
-@tf.function
-def train_step(input_image, target, epoch):
-  with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
-    gen_output = generator(input_image, training=True)
-
-    disc_real_output = discriminator([input_image, target], training=True)
-    disc_generated_output = discriminator([input_image, gen_output], training=True)
-
-    gen_total_loss, gen_gan_loss, gen_l1_loss = generator_loss(disc_generated_output, gen_output, target)
-    disc_loss = discriminator_loss(disc_real_output, disc_generated_output)
-
-  generator_gradients = gen_tape.gradient(gen_total_loss,
-                                          generator.trainable_variables)
-  discriminator_gradients = disc_tape.gradient(disc_loss,
-                                               discriminator.trainable_variables)
-
-  generator_optimizer.apply_gradients(zip(generator_gradients,
-                                          generator.trainable_variables))
-  discriminator_optimizer.apply_gradients(zip(discriminator_gradients,
-                                              discriminator.trainable_variables))
-
-  with summary_writer.as_default():
-    tf.summary.scalar('gen_total_loss', gen_total_loss, step=epoch)
-    tf.summary.scalar('gen_gan_loss', gen_gan_loss, step=epoch)
-    tf.summary.scalar('gen_l1_loss', gen_l1_loss, step=epoch)
-    tf.summary.scalar('disc_loss', disc_loss, step=epoch)
-
-# %% [markdown]
-# The actual training loop:
-# 
-# * Iterates over the number of epochs.
-# * On each epoch it clears the display, and runs `generate_images` to show it's progress.
-# * On each epoch it iterates over the training dataset, printing a '.' for each example.
-# * It saves a checkpoint every 20 epochs.
-
-# %%
-# Cell 32
-
-def fit(train_ds, epochs, test_ds):
-  for epoch in range(epochs):
-    start = time.time()
-
-    display.clear_output(wait=True)
-
-    for example_input, example_target in test_ds.take(1):
-      generate_images(generator, example_input, example_target)
-    print("Epoch: ", epoch)
-
-    # Train
-    for n, (input_image, target) in train_ds.enumerate():
-      print('.', end='')
-      if (n+1) % 100 == 0:
-        print()
-      train_step(input_image, target, epoch)
-    print()
-
-    # saving (checkpoint) the model every 20 epochs
-    if 1: #(epoch + 1) % 20 == 0:
-      checkpoint.save(file_prefix = checkpoint_prefix)
-
-    print ('Time taken for epoch {} is {} sec\n'.format(epoch + 1,
-                                                        time.time()-start))
-  checkpoint.save(file_prefix = checkpoint_prefix)
-
-# %% [markdown]
-# This training loop saves logs you can easily view in TensorBoard to monitor the training progress. Working locally you would launch a separate tensorboard process. In a notebook, if you want to monitor with TensorBoard it's easiest to launch the viewer before starting the training.
-# 
-# To launch the viewer paste the following into a code-cell:
-# %% [markdown]
-# ```
-# %load_ext tensorboard
-# %tensorboard --logdir {log_dir}
-# ```
-# %% [markdown]
-# Now run the training loop:
-
-# %%
-# Cell 33
-EPOCHS = 20
-fit(train_dataset, EPOCHS, test_dataset)
-
-# %% [markdown]
-# # TensorBoard
-# 
-# You can view the [results of a previous run](https://tensorboard.dev/experiment/lZ0C6FONROaUMfjYkVyJqw) of this notebook on [TensorBoard.dev](https://tensorboard.dev/).
-# 
-# TensorBoard.dev is a managed experience for hosting, tracking, and sharing ML experiments with everyone.
-# 
-# It can also included inline using an `<iframe>`:
-
-# %%
-# Cell 33
-
-display.IFrame(
-    src="https://tensorboard.dev/experiment/lZ0C6FONROaUMfjYkVyJqw",
-    width="100%",
-    height="1000px")
-
-# %% [markdown]
-# Interpreting the logs from a GAN is more subtle than a simple classification or regression model. Things to look for::
-# 
-# * Check that neither model has "won". If either the `gen_gan_loss` or the `disc_loss` gets very low it's an indicator that this model is dominating the other, and you are not successfully training the combined model.
-# * The value `log(2) = 0.69` is a good reference point for these losses, as it indicates a perplexity of 2: That the discriminator is on average equally uncertain about the two options.
-# * For the `disc_loss` a value below `0.69` means the discriminator is doing better than random, on the combined set of real+generated images.
-# * For the `gen_gan_loss` a value below `0.69` means the generator is doing better than random at foolding the descriminator.
-# * As training progresses the `gen_l1_loss` should go down.
-

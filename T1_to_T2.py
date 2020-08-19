@@ -20,7 +20,7 @@ os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 # %%
-PATH = 'e:\\T1T2'
+PATH = 'd:\\T1T2'
 T1_PATH = os.path.join(PATH, 'T1')
 T2_PATH = os.path.join(PATH, 'T2')
 
@@ -30,18 +30,18 @@ T2_PATH = os.path.join(PATH, 'T2')
 def load(image_file):
   image = tf.io.read_file(image_file)
   image = tf.image.decode_bmp(image, channels=3)
+  image = image[:, :, :]
 
   float_image = tf.cast(image, tf.float32)
 
   return float_image  
 
 # %%
-# Cell 5
+def resize(input_image, height, width):
+  input_image = tf.image.resize(input_image, [height, width],
+                                method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
+  return input_image
 
-# Load and show a sample input(inp) and real/target(re)
-# inp and re will be used later on for further visualization
-
-inp, re = load(PATH+'train/100.png')
 
 # %%
 # Cell 6
@@ -56,23 +56,15 @@ def normalize(input_image):
 
 def load_image(image_file):
   input_image = load(image_file)
+  input_image = resize(input_image, 256, 256)
   input_image = normalize(input_image)
   return input_image
-# %% [markdown]
-# ## Input Pipeline
 
 # %%
-# Cell 9
-
-# T1
-T1_dataset = tf.data.Dataset.list_files(T1_PATH+'/*.bmp')
-T1_dataset = T1_dataset.map(load_image,
-                                  num_parallel_calls=tf.data.experimental.AUTOTUNE)
-
-# T2
-T2_dataset = tf.data.Dataset.list_files(T2_PATH+'/*.bmp')
-T2_dataset = T2_dataset.map(load_image,
-                                  num_parallel_calls=tf.data.experimental.AUTOTUNE)
+sample_T1 = load_image('D:/T1T2/T1/1.bmp')
+plt.figure()
+plt.imshow(sample_T1)
+plt.show()
 
 # %% [markdown]
 # ## Build the Generator
@@ -104,10 +96,6 @@ def downsample(filters, size, apply_batchnorm=True):
   return result
 
 down_model = downsample(3, 4)
-down_result = down_model(tf.expand_dims(inp, 0))
-print (down_result.shape)
-
-
 # %%
 # Cell 13
 
@@ -131,9 +119,6 @@ def upsample(filters, size, apply_dropout=False):
   return result
 
 up_model = upsample(3, 4)
-up_result = up_model(down_result)
-print (up_result.shape)
-
 
 # %%
 # Cell 15
@@ -188,11 +173,8 @@ def Generator():
 
   return tf.keras.Model(inputs=inputs, outputs=x)
 
-
 generator = Generator()
-tf.keras.utils.plot_model(generator, show_shapes=True, dpi=64)
 
-gen_output = generator(inp[tf.newaxis,...], training=False)
 
 # %% [markdown]
 # * **Generator loss**
@@ -263,13 +245,7 @@ def Discriminator():
 
   return tf.keras.Model(inputs=[inp, tar], outputs=last)
 
-
 discriminator = Discriminator()
-tf.keras.utils.plot_model(discriminator, show_shapes=True, dpi=64)
-
-disc_out = discriminator([inp[tf.newaxis,...], gen_output], training=False)
-plt.imshow(disc_out[0,...,-1], vmin=-20, vmax=20, cmap='RdBu_r')
-plt.colorbar()
 
 # %% [markdown]
 # **Discriminator loss**
@@ -327,8 +303,28 @@ def generate_images(model, test_input, tar):
     plt.imshow(display_list[i] * 0.5 + 0.5)
     plt.axis('off')
   plt.show()
+
+
+# %%
+# T1
+T1_dataset = tf.data.Dataset.list_files(T1_PATH+'\\*.bmp')
+T1_dataset = T1_dataset.map(load_image, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+T1_dataset = T1_dataset.batch(1)         
+
+
+# %%
+# T2
+T2_dataset = tf.data.Dataset.list_files(T2_PATH+'\\*.bmp')
+T2_dataset = T2_dataset.map(load_image, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+T2_dataset = T2_dataset.batch(1)
+
 # %% 
-checkpoint.restore("d:/GitHub/AI-Deep-Learning-Lab/training_checkpoints/")
+T1_list = [t for t in T1_dataset]
+T2_list = [t for t in T2_dataset]
+
+
+# %%
+generate_images(generator, T1_list[0], T2_list[0])
 
 # %%
 for example_input, example_target in test_dataset.take(1):
